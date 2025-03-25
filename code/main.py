@@ -44,8 +44,12 @@ gravity = 0.5
 velocity_y = 0
 is_jumping = False
 
+# Limite de movimento para a esquerda
+initial_position = player_x  # O personagem não pode ir além dessa posição
+
 display_running = True
 clock = pygame.time.Clock()
+
 while display_running:
     screen.fill(LIGHT_BLUE)
 
@@ -65,19 +69,19 @@ while display_running:
 
     # Movimentação
     keys = pygame.key.get_pressed()
-    if keys[pygame.K_LEFT]:
-        player_x -= player_vel
+
+    if keys[pygame.K_LEFT] and player_x > initial_position:
+        player_x -= player_vel  # Move o personagem para a esquerda
+
+    if keys[pygame.K_RIGHT]:  # Movimento para a direita é infinito
         for i in range(8):
-            bg_x_positions[i] += bg_speeds[i]
-    if keys[pygame.K_RIGHT]:
-        player_x += player_vel
-        for i in range(8):
-            bg_x_positions[i] -= bg_speeds[i]
+            bg_x_positions[i] -= bg_speeds[i] * player_vel  # Move o fundo
+
     if keys[pygame.K_SPACE] and not is_jumping:
         velocity_y = -jump_power
         is_jumping = True
 
-    # Reset das camadas do fundo
+    # Reset das camadas do fundo para repetir o cenário
     for i in range(8):
         if bg_x_positions[i] <= -WIDTH:
             bg_x_positions[i] = 0
