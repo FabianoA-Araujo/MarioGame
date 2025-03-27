@@ -1,4 +1,5 @@
 import pygame
+import random
 
 # Inicializa o pygame
 pygame.init()
@@ -19,22 +20,21 @@ score = 0
 
 # Carregar imagens do fundo
 bg_layers = [
-    pygame.image.load(f'./asset/florestaBg{i}.png') for i in range(1, 9)
+    pygame.image.load(f"./asset/florestaBg{i}.png") for i in range(1, 9)
 ]
-
-# Ajustar tamanho das imagens
 bg_layers = [pygame.transform.scale(img, (WIDTH, HEIGHT)) for img in bg_layers]
 
 # Velocidades para efeito parallax
 bg_speeds = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3]
-
-# Posições iniciais das camadas
 bg_x_positions = [0] * 8
 
 # Carregar imagens do jogador e do chão
-ground_img = pygame.image.load('./asset/florestaBg3.png')
-player_img = pygame.image.load('./asset/mario.png')
+ground_img = pygame.image.load("./asset/florestaBg3.png")
+player_img = pygame.image.load("./asset/mario.png")
 player_img = pygame.transform.scale(player_img, (80, 60))
+
+# Carregar imagens dos pisos
+piso_imgs = [pygame.image.load(f"./asset/floor{i}.png") for i in range(1, 6)]
 
 # Configuração do personagem
 player_x, player_y = 100, HEIGHT - 60 - 50
@@ -43,13 +43,25 @@ jump_power = 10
 gravity = 0.5
 velocity_y = 0
 is_jumping = False
+can_jump = True
+move_right = True  # Controla se o personagem pode se mover
 
-# Limite de movimento para a esquerda
-initial_position = player_x  # O personagem não pode ir além dessa posição
+# Lista de pisos
+pisos = []
+espaco_minimo = 20  # Distância mínima entre pisos
+
+# Função para gerar um novo piso
+def gerar_piso():
+    img = random.choice(piso_imgs)
+    x = WIDTH + random.randint(50, 150)
+    y = HEIGHT - 60 - img.get_height()  # Todos os pisos na base inicial
+    return [img, x, y]
+
+# Criando 5 pisos iniciais
+pisos = [gerar_piso() for _ in range(5)]
 
 display_running = True
 clock = pygame.time.Clock()
-
 while display_running:
     screen.fill(LIGHT_BLUE)
 
@@ -65,23 +77,24 @@ while display_running:
         if event.type == pygame.QUIT:
             display_running = False
         if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+            if can_jump:
+                velocity_y = -jump_power
+                is_jumping = True
+                can_jump = False
+                move_right = True  # Permite andar após pular
             score += 1  # Incrementa o score ao pressionar espaço
 
     # Movimentação
     keys = pygame.key.get_pressed()
-
-    if keys[pygame.K_LEFT] and player_x > initial_position:
-        player_x -= player_vel  # Move o personagem para a esquerda
-
-    if keys[pygame.K_RIGHT]:  # Movimento para a direita é infinito
+    if keys[pygame.K_LEFT] and player_x > 50:
+        player_x -= player_vel
+    if keys[pygame.K_RIGHT] and move_right:
         for i in range(8):
-            bg_x_positions[i] -= bg_speeds[i] * player_vel  # Move o fundo
+            bg_x_positions[i] -= bg_speeds[i]
+        for piso in pisos:
+            piso[1] -= player_vel
 
-    if keys[pygame.K_SPACE] and not is_jumping:
-        velocity_y = -jump_power
-        is_jumping = True
-
-    # Reset das camadas do fundo para repetir o cenário
+    # Reset das camadas do fundo
     for i in range(8):
         if bg_x_positions[i] <= -WIDTH:
             bg_x_positions[i] = 0
@@ -94,8 +107,34 @@ while display_running:
     if player_y >= HEIGHT - 60 - 50:
         player_y = HEIGHT - 60 - 50
         is_jumping = False
+        can_jump = True
 
-    # Desenha o jogador com a nova imagem
+    # Verificar colisão lateral com pisos
+    move_right = True
+    for piso in pisos:
+        piso_rect = pygame.Rect(piso[1], piso[2], piso[0].get_width(), piso[0].get_height())
+        player_rect = pygame.Rect(player_x, player_y, player_img.get_width(), player_img.get_height())
+
+        # Se o personagem está no ar e colide com um piso, ele não pode subir automaticamente
+        if player_rect.colliderect(piso_rect):
+            if not is_jumping:  # Só para se ele não estiver pulando
+                move_right = False  # Impede o movimento para frente até que o jogador pule
+            break  # Evita verificar múltiplas colisões ao mesmo tempo
+
+    # Desenha os pisos
+    for piso in pisos:
+        screen.blit(piso[0], (piso[1], piso[2]))
+
+    # Geração contínua de pisos mantendo distância mínima
+    if len(pisos) < 5 or pisos[-1][1] < WIDTH - 150:
+        novo_piso = gerar_piso()
+        if not pisos or novo_piso[1] - pisos[-1][1] >= espaco_minimo:
+            pisos.append(novo_piso)
+
+    # Removendo pisos que saíram da tela
+    pisos = [piso for piso in pisos if piso[1] > -piso[0].get_width()]
+
+    # Desenha o jogador
     screen.blit(player_img, (player_x, player_y))
 
     # Exibir o score
