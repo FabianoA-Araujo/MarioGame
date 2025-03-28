@@ -51,7 +51,7 @@ coin_img = pygame.transform.scale(coin_img, (20, 20))  # Ajusta o tamanho para 2
 # Configuração do personagem
 player_x, player_y = 100, HEIGHT - 60 - 50
 player_vel = 5
-jump_power = 10
+jump_power = 12  # Aumento do pulo em 10 pixels
 gravity = 0.5
 velocity_y = 0
 is_jumping = False
@@ -68,8 +68,6 @@ tempo_geracao_mushroom1 = 0
 intervalos_geracao_mushroom1 = [3, 7, 10, 15]  # em segundos
 tempo_geracao_mushroom2 = 0
 intervalos_geracao_mushroom2 = [3, 5, 9]  # Agora a geração será duas vezes mais rápida
-
-
 
 # Lista de elementos no chão (pisos e buracos)
 elementos_chao = []
@@ -97,23 +95,23 @@ def gerar_mushroom(tipo):
         return [mushroom2_img, x, y]
 
 # Função para gerar pisos e buracos
-def gerar_elemento(ultima_posicao):
-    if random.random() < 0.3:  # 30% de chance de gerar um buraco
+def gerar_elemento(ultima_posicao, ultimo_buraco):
+    if random.random() < 0.3 and ultimo_buraco != 1:  # 30% de chance de gerar um buraco, mas não dois seguidos
         img = hole_img
+        return [img, ultima_posicao, HEIGHT - 60 - img.get_height(), 1], 1  # Retorna o buraco e marca
     else:
         img = random.choice(piso_imgs)  # Escolhe um piso aleatório
-
-    x = max(WIDTH + random.randint(50, 150), ultima_posicao + espaco_minimo)
-    y = HEIGHT - 60 - img.get_height()  # Alinha ao chão
-    return [img, x, y]
+        return [img, ultima_posicao, HEIGHT - 60 - img.get_height(), 0], 0  # Retorna o piso e marca como piso (0)
 
 # Criando 5 elementos iniciais
 ultima_posicao = 0
+ultimo_buraco = 0
 elementos_chao = []
 for _ in range(5):
-    elemento = gerar_elemento(ultima_posicao)
+    elemento, ultimo_buraco = gerar_elemento(ultima_posicao, ultimo_buraco)
     elementos_chao.append(elemento)
     ultima_posicao = elemento[1] + elemento[0].get_width()
+
 
 # Inicializando contadores
 contador_moedas = 0
@@ -125,6 +123,7 @@ contador_buracos = 0
 display_running = True
 clock = pygame.time.Clock()
 start_time = time.time()  # Armazenar o tempo de início do jogo
+tempo_geracao_inicio = 2  # Tempo em segundos para começar a gerar os objetos
 
 while display_running:
     screen.fill(LIGHT_BLUE)
@@ -147,7 +146,6 @@ while display_running:
                 can_jump = False
                 move_right = True  # Permite andar após pular
                 sobre_piso = None  # Sai do piso ao pular
-            score += 1  # Incrementa o score ao pressionar espaço
 
     # Movimentação
     keys = pygame.key.get_pressed()
@@ -205,7 +203,7 @@ while display_running:
 
     # Geração contínua de elementos mantendo distância mínima
     if len(elementos_chao) < 5 or elementos_chao[-1][1] < WIDTH - 150:
-        novo_elemento = gerar_elemento(elementos_chao[-1][1] + elementos_chao[-1][0].get_width())
+        novo_elemento, ultimo_buraco = gerar_elemento(elementos_chao[-1][1] + elementos_chao[-1][0].get_width(), ultimo_buraco)
         elementos_chao.append(novo_elemento)
 
     # Removendo elementos que saíram da tela
@@ -214,34 +212,47 @@ while display_running:
     # Controle de tempo de geração de moedas e cogumelos
     tempo_decorrido = time.time() - start_time  # Tempo total do jogo em segundos
 
-    # Gerar moedas a cada intervalo
-    if tempo_decorrido >= tempo_geracao_moeda:
+    # Gerar moedas a cada intervalo, mas só se o personagem estiver em movimento
+    if move_right and tempo_decorrido >= tempo_geracao_moeda:
         moeda = gerar_moeda()
         elementos_chao.append(moeda)  # Adiciona a moeda à lista de elementos
         contador_moedas += 1
-
-        # Reset o contador de tempo após a geração da moeda
         tempo_geracao_moeda = tempo_decorrido + intervalo_geracao_moeda
 
-    # Gerar cogumelos do tipo 1 (murshroom1)
-    if tempo_decorrido >= tempo_geracao_mushroom1:
+    # Gerar cogumelos do tipo 1 (murshroom1), mas só se o personagem estiver em movimento
+    if move_right and tempo_decorrido >= tempo_geracao_mushroom1:
         mushroom1 = gerar_mushroom(1)
         elementos_chao.append(mushroom1)
         contador_mushrooms1 += 1
         tempo_geracao_mushroom1 = tempo_decorrido + intervalos_geracao_mushroom1[contador_mushrooms1 % len(intervalos_geracao_mushroom1)]
 
-    # Gerar cogumelos do tipo 2 (murshroom2)
-    if tempo_decorrido >= tempo_geracao_mushroom2:
+    # Gerar cogumelos do tipo 2 (murshroom2), mas só se o personagem estiver em movimento
+    if move_right and tempo_decorrido >= tempo_geracao_mushroom2:
         mushroom2 = gerar_mushroom(2)
         elementos_chao.append(mushroom2)
         contador_mushrooms2 += 1
         tempo_geracao_mushroom2 = tempo_decorrido + intervalos_geracao_mushroom2[contador_mushrooms2 % len(intervalos_geracao_mushroom2)]
 
-    # Exibir contadores de elementos
-    elementos_texto = font.render(
-        f"Moedas: {contador_moedas} | Mushroom1: {contador_mushrooms1} | Mushroom2: {contador_mushrooms2} | Pisos: {contador_pisos} | Buracos: {contador_buracos}",
-        True, BLACK)
-    screen.blit(elementos_texto, (10, HEIGHT - 30))
+    # Verificando colisões com moedas, cogumelos e alterando o score
+    for elemento in elementos_chao:
+        elemento_rect = pygame.Rect(elemento[1], elemento[2], elemento[0].get_width(), elemento[0].get_height())
+        player_rect = pygame.Rect(player_x, player_y, player_img.get_width(), player_img.get_height())
+
+        if elemento[0] == coin_img and player_rect.colliderect(elemento_rect):
+            score += 2  # Soma 2 pontos se colidir com uma moeda
+            elementos_chao.remove(elemento)  # Remove a moeda
+
+        elif elemento[0] == mushroom1_img and player_rect.colliderect(elemento_rect):
+            score += 5  # Soma 5 pontos se colidir com cogumelo1
+            elementos_chao.remove(elemento)  # Remove o cogumelo
+
+        elif elemento[0] == mushroom2_img and player_rect.colliderect(elemento_rect):
+            score += 8  # Soma 8 pontos se colidir com cogumelo2
+            elementos_chao.remove(elemento)  # Remove o cogumelo
+
+    # Exibir o score
+    score_text = font.render(f"Score: {score}", True, BLACK)
+    screen.blit(score_text, (WIDTH - 150, 10))
 
     # Desenha os elementos do chão
     for elemento in elementos_chao:
