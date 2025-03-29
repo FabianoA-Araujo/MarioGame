@@ -5,6 +5,18 @@ import time
 # Inicializa o pygame
 pygame.init()
 
+# Inicializa o mixer de som
+pygame.mixer.init()
+
+# Carrega e toca a música em loop
+pygame.mixer.music.load("./asset/marioSound.wav")
+pygame.mixer.music.play(-1, 0.0)  # O segundo parâmetro é o tempo de delay, 0.0 significa iniciar imediatamente
+
+# Configurações da tela
+WIDTH, HEIGHT = 800, 400
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Super Mario Clone")
+
 # Configurações da tela
 WIDTH, HEIGHT = 800, 400
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -33,7 +45,8 @@ bg_x_positions = [0] * 8
 ground_img = pygame.image.load("./asset/florestaBg3.png")
 player_img = pygame.image.load("./asset/mario.png")
 player_img = pygame.transform.scale(player_img, (80, 60))
-hole_img = pygame.image.load("./asset/hole.png")
+hole_img = pygame.image.load("./asset/hole1.png")
+hole_img = pygame.transform.scale(hole_img, (60, ))  # Ajusta o tamanho da imagem
 # Carregar e redimensionar as imagens dos cogumelos
 mushroom1_img = pygame.image.load("./asset/murshroom1.png")
 mushroom1_img = pygame.transform.scale(mushroom1_img, (24, 24))  # Redimensiona para 40x40 pixels
